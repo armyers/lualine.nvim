@@ -64,25 +64,29 @@ local function filename_and_parent(path, sep)
   end
 end
 
--- return the absolute path of root of the git repo
-local function git_root()
-  local handle = io.popen('git rev-parse --show-toplevel 2>&1')
-  if not handle then
-    return '', 1 -- failed to open process
+local function is_git_dir(path)
+  local stat = vim.loop.fs_stat(path)
+  return stat and (stat.type == 'directory' or stat.type == 'file')
+end
+
+local function git_root(start_path, sep)
+  local path = start_path or vim.fn.getcwd()
+
+  while path do
+    local git_path = path .. sep .. '.git'
+    if is_git_dir(git_path) then
+      return path
+    end
+
+    -- Move up one directory
+    local parent = path:match('^(.*)' .. sep .. '[^' .. sep .. ']*$')
+    if not parent or parent == path then
+      break
+    end
+    path = parent
   end
 
-  local result = handle:read('*a')
-  local ok, _, exit_code = handle:close()
-
-  -- Remove trailing newline
-  result = result:gsub('%s+$', '')
-
-  -- If handle:close() returns false, use exit_code = 1
-  if not ok then
-    return result, exit_code or 1
-  end
-
-  return result, 0
+  return nil
 end
 
 -- remove all path components from '/' down to the parent of the git repo
@@ -104,9 +108,8 @@ local function path_with_gitroot(path, sep)
   elseif #segments == 1 then
     return segments[#segments]
   else
-    local git_root_path, _ = git_root()
-    -- WARN: this is possibly fragile; it could break if git changes its output
-    if git_root_path:match('fatal: not a git repository') then
+    local git_root_path = git_root(path, sep)
+    if git_root_path == nil then
       return vim.fn.expand('%:p:~')
     else
       -- remove the git repo path from the path, but first split it
