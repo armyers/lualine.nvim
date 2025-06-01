@@ -96,7 +96,7 @@ local function remove_git_root_parent(git_root_parent, file_path)
 end
 
 -- return the relative path of the file, including the git repo;
--- if it's not a git repo, do the same as filename_and_parent (options.path == 3)
+-- if it's not a git repo, do the same as options.path == 3
 local function path_with_gitroot(path, sep)
   local segments = vim.split(path, sep)
   if #segments == 0 then
@@ -104,16 +104,16 @@ local function path_with_gitroot(path, sep)
   elseif #segments == 1 then
     return segments[#segments]
   else
-    local git_root_path, exit_code = git_root()
+    local git_root_path, _ = git_root()
     -- WARN: this is possibly fragile; it could break if git changes its output
     if git_root_path:match('fatal: not a git repository') then
       return vim.fn.expand('%:p:~')
     else
       -- remove the git repo path from the path, but first split it
-      local git_root_path_segments = {}
-      git_root_path_segments = vim.split(git_root_path, sep)
+      local git_root_path_segments = vim.split(git_root_path, sep)
       -- remove the last component of the git root path which is the repo name
       table.remove(git_root_path_segments, nil)
+      -- remove the path components from root down to, but not including the git repo name
       local final_segments = remove_git_root_parent(git_root_path_segments, segments)
       -- rebuild the relative path from the git root, which should include the repo name
       return table.concat(final_segments, sep)
